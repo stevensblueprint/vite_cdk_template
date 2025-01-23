@@ -2,15 +2,17 @@
 
 This template provides an AWS CDK-based infrastructure template for deploying React applications with a CI/CD pipeline.
 
-S3 for Static Hosting:
+**S3 for Static Hosting:**
 
 An S3 bucket is configured to host the static files of the React application.
 The bucket supports public or private access based on configuration and ensures secure storage with S3-managed encryption.
-CloudFront for Content Delivery:
+
+**CloudFront for Content Delivery:**
 
 A CloudFront distribution is integrated with the S3 bucket to provide low-latency content delivery.
 It enforces HTTPS, sets up custom error responses, and uses an Origin Access Identity (OAI) for secure access to the bucket.
-CI/CD Pipeline with AWS CodePipeline:
+
+**CI/CD Pipeline with AWS CodePipeline:**
 
 The pipeline automates the build, test, and deployment of the React application.
 GitHub Integration: Source code is fetched from a specified GitHub repository.
