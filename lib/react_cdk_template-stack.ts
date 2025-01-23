@@ -110,7 +110,7 @@ export class ViteInfraTemplate extends Stack {
 
     const distribution = new Distribution(
       this,
-      "crm-admin-deployment-distribution",
+      "", // TODO: Add distribution name ex. {project_name}-deployment-distribution
       {
         defaultBehavior: {
           origin: s3Origin,
@@ -160,7 +160,8 @@ export class ViteInfraTemplate extends Stack {
 
   private _createBuildProject(distribution: Distribution) {
     const buildOutput = new Artifact();
-    const buildProject = new Project(this, "crm-admin-codebuild-project", {
+    const buildProject = new Project(this, "", {
+      // TODO: Add project name ex. {project_name}-codebuild
       buildSpec: BuildSpec.fromObject({
         version: "0.2",
         phases: {
