@@ -1,0 +1,34 @@
+stack:
+  name: "" # Name of the stack
+  account: 0 # AWS Account ID
+  region: "" # AWS Region
+
+githubRepoOwner: # GitHub username repo owner
+githubRepoName: # GitHub repo name
+githubAccessTokenName: # GitHub access token name
+
+dev:
+  deploy: false
+  environmentType: dev
+  branchName: dev
+  pipelineConfig:
+    name: # Name of the pipeline
+  s3Config:
+    bucketName: # Name of the bucket
+    artifactsBucket: # Name of the bucket
+    publicAccess: false
+    indexFile: index.html
+    errorFile: index.html
+
+prod:
+  deploy: true
+  environmentType: prod
+  branchName: main
+  pipelineConfig:
+    name: # Name of the pipeline
+  s3Config:
+    bucketName: # Name of the bucket
+    artifactsBucket: # Name of the bucket
+    publicAccess: true
+    indexFile: index.html
+    errorFile: index.html
