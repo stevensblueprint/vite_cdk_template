@@ -13,7 +13,12 @@ import {
   ViewerProtocolPolicy,
 } from "aws-cdk-lib/aws-cloudfront";
 import { S3Origin } from "aws-cdk-lib/aws-cloudfront-origins";
-import { BuildSpec, LinuxBuildImage, Project } from "aws-cdk-lib/aws-codebuild";
+import {
+  BuildEnvironmentVariable,
+  BuildSpec,
+  LinuxBuildImage,
+  Project,
+} from "aws-cdk-lib/aws-codebuild";
 import { Artifact, Pipeline } from "aws-cdk-lib/aws-codepipeline";
 import {
   CodeBuildAction,
@@ -28,6 +33,8 @@ import {
   BucketEncryption,
 } from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
+import * as dotenv from "dotenv";
+import path = require("path");
 
 interface ViteInfraTemplateProps extends StackProps {
   environmentType: string;
@@ -49,12 +56,14 @@ export class ViteInfraTemplate extends Stack {
 
     /*------------------------react deployment---------------------------*/
     const webBucket = this._createWebBucket(props);
-    const distribution = this._createCloudFrontDistribution(webBucket);
+    const distribution = this._createCloudFrontDistribution(webBucket, props);
 
     /*------------------------codepipeline/cicd--------------------------*/
     const { sourceOutput, sourceAction } = this._createSourceAction(props);
-    const { buildOutput, buildProject } =
-      this._createBuildProject(distribution);
+    const { buildOutput, buildProject } = this._createBuildProject(
+      distribution,
+      props
+    );
     const buildAction = this._createBuildAction(
       buildProject,
       sourceOutput,
@@ -90,7 +99,10 @@ export class ViteInfraTemplate extends Stack {
     return webBucket;
   }
 
-  private _createCloudFrontDistribution(bucket: Bucket) {
+  private _createCloudFrontDistribution(
+    bucket: Bucket,
+    props: ViteInfraTemplateProps
+  ) {
     const oai = new OriginAccessIdentity(this, "OAI");
     bucket.addToResourcePolicy(
       new PolicyStatement({
@@ -108,32 +120,28 @@ export class ViteInfraTemplate extends Stack {
       originAccessIdentity: oai,
     });
 
-    const distribution = new Distribution(
-      this,
-      "", // TODO: Add distribution name ex. {project_name}-deployment-distribution
-      {
-        defaultBehavior: {
-          origin: s3Origin,
-          viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+    const distribution = new Distribution(this, `${props.stackName}`, {
+      defaultBehavior: {
+        origin: s3Origin,
+        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      defaultRootObject: "index.html",
+      errorResponses: [
+        {
+          httpStatus: 404,
+          responseHttpStatus: 404,
+          responsePagePath: "/index.html",
+          ttl: Duration.seconds(300),
         },
-        defaultRootObject: "index.html",
-        errorResponses: [
-          {
-            httpStatus: 404,
-            responseHttpStatus: 404,
-            responsePagePath: "/index.html",
-            ttl: Duration.seconds(300),
-          },
-          {
-            httpStatus: 403,
-            responseHttpStatus: 500,
-            responsePagePath: "/index.html",
-            ttl: Duration.seconds(300),
-          },
-        ],
-        priceClass: PriceClass.PRICE_CLASS_100,
-      }
-    );
+        {
+          httpStatus: 403,
+          responseHttpStatus: 500,
+          responsePagePath: "/index.html",
+          ttl: Duration.seconds(300),
+        },
+      ],
+      priceClass: PriceClass.PRICE_CLASS_100,
+    });
 
     return distribution;
   }
@@ -158,10 +166,13 @@ export class ViteInfraTemplate extends Stack {
     };
   }
 
-  private _createBuildProject(distribution: Distribution) {
+  private _createBuildProject(
+    distribution: Distribution,
+    props: ViteInfraTemplateProps
+  ) {
+    const envVariables = loadEnvFile();
     const buildOutput = new Artifact();
-    const buildProject = new Project(this, "", {
-      // TODO: Add project name ex. {project_name}-codebuild
+    const buildProject = new Project(this, `${props.stackName}-codebuild`, {
       buildSpec: BuildSpec.fromObject({
         version: "0.2",
         phases: {
@@ -188,6 +199,7 @@ export class ViteInfraTemplate extends Stack {
       }),
       environment: {
         buildImage: LinuxBuildImage.AMAZON_LINUX_2_5,
+        environmentVariables: envVariables,
       },
     });
 
@@ -275,4 +287,25 @@ export class ViteInfraTemplate extends Stack {
       description: "s3 bucket website url",
     });
   }
+}
+
+function convertEnvVariables(env: dotenv.DotenvParseOutput): {
+  [key: string]: { value: string };
+} {
+  return Object.keys(env).reduce((acc, key) => {
+    acc[key] = { value: env[key] };
+    return acc;
+  }, {} as { [key: string]: { value: string } });
+}
+
+function loadEnvFile() {
+  const envFilePath = path.join(__dirname, "../config/.env");
+  const result = dotenv.config({ path: envFilePath });
+  if (result.error) {
+    throw result.error;
+  }
+  if (!result.parsed) {
+    throw new Error("Failed to load environment variables from .env file");
+  }
+  return convertEnvVariables(result.parsed);
 }
