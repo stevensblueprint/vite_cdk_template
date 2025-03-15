@@ -10,7 +10,7 @@ function getEnvironmentConfig(environmentName: string) {
   const environment = config[environmentName];
   return {
     isDeploy: environment.deploy,
-    stackName: `${config.stack.name}-${environment.environmentType}`,
+    stackName: `${config.stack.name}`,
     environmentType: environment.environmentType,
     branch: environment.branchName,
     pipelineName: environment.pipelineConfig.name,

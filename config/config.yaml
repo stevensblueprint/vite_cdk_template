@@ -1,7 +1,5 @@
 stack:
   name: "" # Name of the stack
-  account: 0 # AWS Account ID
-  region: "" # AWS Region
 
 githubRepoOwner: # GitHub username repo owner
 githubRepoName: # GitHub repo name
