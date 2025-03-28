@@ -1,42 +1,16 @@
-import {
-  CfnOutput,
-  Duration,
-  RemovalPolicy,
-  SecretValue,
-  Stack,
-  StackProps,
-} from "aws-cdk-lib";
-import {
-  Distribution,
-  OriginAccessIdentity,
-  PriceClass,
-  ViewerProtocolPolicy,
-} from "aws-cdk-lib/aws-cloudfront";
-import { S3Origin } from "aws-cdk-lib/aws-cloudfront-origins";
-import {
-  BuildEnvironmentVariable,
-  BuildSpec,
-  LinuxBuildImage,
-  Project,
-} from "aws-cdk-lib/aws-codebuild";
+import * as cdk from "aws-cdk-lib";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as cloudfrontorigins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import { Artifact, Pipeline } from "aws-cdk-lib/aws-codepipeline";
-import {
-  CodeBuildAction,
-  GitHubSourceAction,
-  S3DeployAction,
-} from "aws-cdk-lib/aws-codepipeline-actions";
-import { CanonicalUserPrincipal, PolicyStatement } from "aws-cdk-lib/aws-iam";
-import {
-  BlockPublicAccess,
-  Bucket,
-  BucketAccessControl,
-  BucketEncryption,
-} from "aws-cdk-lib/aws-s3";
-import { Construct } from "constructs";
+import * as cpa from "aws-cdk-lib/aws-codepipeline-actions";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as dotenv from "dotenv";
+import { Construct } from "constructs";
 import path = require("path");
 
-interface ViteInfraTemplateProps extends StackProps {
+interface ViteInfraTemplateProps extends cdk.StackProps {
   environmentType: string;
   branch: string;
   pipelineName: string;
@@ -50,7 +24,7 @@ interface ViteInfraTemplateProps extends StackProps {
   githubAccessToken: string;
 }
 
-export class ViteInfraTemplate extends Stack {
+export class ViteInfraTemplate extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ViteInfraTemplateProps) {
     super(scope, id, props);
 
@@ -86,62 +60,67 @@ export class ViteInfraTemplate extends Stack {
   private _createWebBucket(props: ViteInfraTemplateProps) {
     const { bucketName, indexFile, errorFile, publicAccess } = props;
 
-    const webBucket = new Bucket(this, bucketName, {
+    const webBucket = new s3.Bucket(this, bucketName, {
       websiteIndexDocument: indexFile,
       websiteErrorDocument: errorFile,
       publicReadAccess: publicAccess,
-      removalPolicy: RemovalPolicy.DESTROY,
-      blockPublicAccess: BlockPublicAccess.BLOCK_ACLS,
-      accessControl: BucketAccessControl.BUCKET_OWNER_FULL_CONTROL,
-      encryption: BucketEncryption.S3_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+      accessControl: s3.BucketAccessControl.BUCKET_OWNER_FULL_CONTROL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
     });
 
     return webBucket;
   }
 
   private _createCloudFrontDistribution(
-    bucket: Bucket,
+    bucket: s3.Bucket,
     props: ViteInfraTemplateProps
   ) {
-    const oai = new OriginAccessIdentity(this, "OAI");
+    const oai = new cloudfront.OriginAccessIdentity(this, "OAI");
     bucket.addToResourcePolicy(
-      new PolicyStatement({
+      new iam.PolicyStatement({
         actions: ["s3:GetObject"],
         resources: [bucket.arnForObjects("*")],
         principals: [
-          new CanonicalUserPrincipal(
+          new iam.CanonicalUserPrincipal(
             oai.cloudFrontOriginAccessIdentityS3CanonicalUserId
           ),
         ],
       })
     );
 
-    const s3Origin = new S3Origin(bucket, {
+    const s3Origin = new cloudfrontorigins.S3Origin(bucket, {
       originAccessIdentity: oai,
     });
 
-    const distribution = new Distribution(this, `${props.stackName}`, {
-      defaultBehavior: {
-        origin: s3Origin,
-        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      },
-      defaultRootObject: "index.html",
-      errorResponses: [
-        {
-          httpStatus: 404,
-          responseHttpStatus: 404,
-          responsePagePath: "/index.html",
-          ttl: Duration.seconds(300),
+    const distribution = new cloudfront.Distribution(
+      this,
+      `${props.stackName}`,
+      {
+        defaultBehavior: {
+          origin: s3Origin,
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         },
-        {
-          httpStatus: 403,
-          responseHttpStatus: 500,
-          responsePagePath: "/index.html",
-          ttl: Duration.seconds(300),
-        },
-      ],
-      priceClass: PriceClass.PRICE_CLASS_100,
-    });
+        defaultRootObject: "index.html",
+        errorResponses: [
+          {
+            httpStatus: 404,
+            responseHttpStatus: 404,
+            responsePagePath: "/index.html",
+            ttl: cdk.Duration.seconds(300),
+          },
+          {
+            httpStatus: 403,
+            responseHttpStatus: 500,
+            responsePagePath: "/index.html",
+            ttl: cdk.Duration.seconds(300),
+          },
+        ],
+        priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      }
+    );
 
     return distribution;
   }
@@ -151,12 +130,12 @@ export class ViteInfraTemplate extends Stack {
     const { githubRepoOwner, githubRepoName, githubAccessToken, branch } =
       props;
     const sourceOutput = new Artifact();
-    const sourceAction = new GitHubSourceAction({
+    const sourceAction = new cpa.GitHubSourceAction({
       actionName: "GitHub",
       owner: githubRepoOwner,
       repo: githubRepoName,
       branch: branch,
-      oauthToken: SecretValue.secretsManager(githubAccessToken),
+      oauthToken: cdk.SecretValue.secretsManager(githubAccessToken),
       output: sourceOutput,
     });
 
@@ -167,44 +146,49 @@ export class ViteInfraTemplate extends Stack {
   }
 
   private _createBuildProject(
-    distribution: Distribution,
+    distribution: cloudfront.Distribution,
     props: ViteInfraTemplateProps
   ) {
     const envVariables = loadEnvFile();
     const buildOutput = new Artifact();
-    const buildProject = new Project(this, `${props.stackName}-codebuild`, {
-      buildSpec: BuildSpec.fromObject({
-        version: "0.2",
-        phases: {
-          install: {
-            "runtime-versions": {
-              nodejs: "latest",
+    const buildProject = new codebuild.Project(
+      this,
+      `${props.stackName}-codebuild`,
+      {
+        buildSpec: codebuild.BuildSpec.fromObject({
+          version: "0.2",
+          phases: {
+            install: {
+              "runtime-versions": {
+                nodejs: "latest",
+              },
+              commands: ['echo "installing npm dependencies"', "npm install"],
             },
-            commands: ['echo "installing npm dependencies"', "npm install"],
+            build: {
+              commands: ['echo "building app"', "npm run build"],
+            },
+            post_build: {
+              commands: [
+                'echo "creating cloudfront invalidation"',
+                `aws cloudfront create-invalidation --distribution-id ${distribution.distributionId} --paths '/*'`,
+              ],
+            },
           },
-          build: {
-            commands: ['echo "building app"', "npm run build"],
+          artifacts: {
+            "base-directory": "dist",
+            files: ["**/*"],
           },
-          post_build: {
-            commands: [
-              'echo "creating cloudfront invalidation"',
-              `aws cloudfront create-invalidation --distribution-id ${distribution.distributionId} --paths '/*'`,
-            ],
-          },
+        }),
+        environment: {
+          buildImage: codebuild.LinuxBuildImage.AMAZON_LINUX_2_5,
+          privileged: true,
+          environmentVariables: envVariables,
         },
-        artifacts: {
-          "base-directory": "dist",
-          files: ["**/*"],
-        },
-      }),
-      environment: {
-        buildImage: LinuxBuildImage.AMAZON_LINUX_2_5,
-        environmentVariables: envVariables,
-      },
-    });
+      }
+    );
 
     buildProject.addToRolePolicy(
-      new PolicyStatement({
+      new iam.PolicyStatement({
         actions: ["cloudfront:CreateInvalidation"],
         resources: [
           `arn:aws:cloudfront::${this.account}:distribution/${distribution.distributionId}`,
@@ -213,7 +197,7 @@ export class ViteInfraTemplate extends Stack {
     );
 
     buildProject.addToRolePolicy(
-      new PolicyStatement({
+      new iam.PolicyStatement({
         actions: ["codebuild:StartBuild", "codebuild:BatchGetBuilds"],
         resources: [buildProject.projectArn],
       })
@@ -226,11 +210,11 @@ export class ViteInfraTemplate extends Stack {
   }
 
   private _createBuildAction(
-    buildProject: Project,
+    buildProject: codebuild.Project,
     sourceOutput: Artifact,
     buildOutput: Artifact
   ) {
-    const buildAction = new CodeBuildAction({
+    const buildAction = new cpa.CodeBuildAction({
       actionName: "CodeBuild",
       project: buildProject,
       input: sourceOutput,
@@ -240,8 +224,8 @@ export class ViteInfraTemplate extends Stack {
     return buildAction;
   }
 
-  private _createDeployAction(buildOutput: Artifact, bucket: Bucket) {
-    const deployAction = new S3DeployAction({
+  private _createDeployAction(buildOutput: Artifact, bucket: s3.Bucket) {
+    const deployAction = new cpa.S3DeployAction({
       actionName: "DeployToS3",
       input: buildOutput,
       bucket: bucket,
@@ -251,12 +235,12 @@ export class ViteInfraTemplate extends Stack {
   }
 
   private _createPipeline(
-    deployAction: S3DeployAction,
-    sourceAction: GitHubSourceAction,
-    buildAction: CodeBuildAction,
+    deployAction: cpa.S3DeployAction,
+    sourceAction: cpa.GitHubSourceAction,
+    buildAction: cpa.CodeBuildAction,
     props: ViteInfraTemplateProps,
-    bucket: Bucket,
-    distribution: Distribution
+    bucket: s3.Bucket,
+    distribution: cloudfront.Distribution
   ) {
     const { pipelineName } = props;
 
@@ -274,15 +258,15 @@ export class ViteInfraTemplate extends Stack {
     codePipeline.node.addDependency(bucket, distribution);
   }
 
-  private _outCloudfrontURL(distribution: Distribution) {
-    new CfnOutput(this, "cloudfront-web-url", {
+  private _outCloudfrontURL(distribution: cloudfront.Distribution) {
+    new cdk.CfnOutput(this, "cloudfront-web-url", {
       value: distribution.distributionDomainName,
       description: "cloudfront website url",
     });
   }
 
-  private _outS3BucketURL(bucket: Bucket) {
-    new CfnOutput(this, "s3-bucket-web-url", {
+  private _outS3BucketURL(bucket: s3.Bucket) {
+    new cdk.CfnOutput(this, "s3-bucket-web-url", {
       value: bucket.bucketWebsiteUrl,
       description: "s3 bucket website url",
     });
