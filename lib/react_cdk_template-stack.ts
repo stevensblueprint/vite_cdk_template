@@ -2,7 +2,7 @@ import * as cdk from "aws-cdk-lib";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as cloudfrontorigins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
-import { Artifact, Pipeline } from "aws-cdk-lib/aws-codepipeline";
+import * as codepipeline from "aws-cdk-lib/aws-codepipeline";
 import * as cpa from "aws-cdk-lib/aws-codepipeline-actions";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -129,7 +129,7 @@ export class ViteInfraTemplate extends cdk.Stack {
   private _createSourceAction(props: ViteInfraTemplateProps) {
     const { githubRepoOwner, githubRepoName, githubAccessToken, branch } =
       props;
-    const sourceOutput = new Artifact();
+    const sourceOutput = new codepipeline.Artifact();
     const sourceAction = new cpa.GitHubSourceAction({
       actionName: "GitHub",
       owner: githubRepoOwner,
@@ -150,7 +150,7 @@ export class ViteInfraTemplate extends cdk.Stack {
     props: ViteInfraTemplateProps
   ) {
     const envVariables = loadEnvFile();
-    const buildOutput = new Artifact();
+    const buildOutput = new codepipeline.Artifact();
     const buildProject = new codebuild.Project(
       this,
       `${props.stackName}-codebuild`,
@@ -211,8 +211,8 @@ export class ViteInfraTemplate extends cdk.Stack {
 
   private _createBuildAction(
     buildProject: codebuild.Project,
-    sourceOutput: Artifact,
-    buildOutput: Artifact
+    sourceOutput: codepipeline.Artifact,
+    buildOutput: codepipeline.Artifact
   ) {
     const buildAction = new cpa.CodeBuildAction({
       actionName: "CodeBuild",
@@ -224,7 +224,10 @@ export class ViteInfraTemplate extends cdk.Stack {
     return buildAction;
   }
 
-  private _createDeployAction(buildOutput: Artifact, bucket: s3.Bucket) {
+  private _createDeployAction(
+    buildOutput: codepipeline.Artifact,
+    bucket: s3.Bucket
+  ) {
     const deployAction = new cpa.S3DeployAction({
       actionName: "DeployToS3",
       input: buildOutput,
@@ -250,7 +253,7 @@ export class ViteInfraTemplate extends cdk.Stack {
       { stageName: "Deploy", actions: [deployAction] },
     ];
 
-    const codePipeline = new Pipeline(this, "codepipeline", {
+    const codePipeline = new codepipeline.Pipeline(this, "codepipeline", {
       pipelineName: pipelineName,
       stages,
     });
