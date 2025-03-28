@@ -58,16 +58,17 @@ export class ViteInfraTemplate extends cdk.Stack {
 
   /*--------------------------react deployment---------------------------*/
   private _createWebBucket(props: ViteInfraTemplateProps) {
-    const { bucketName, indexFile, errorFile, publicAccess } = props;
+    const { bucketName, indexFile, errorFile } = props;
 
     const webBucket = new s3.Bucket(this, bucketName, {
       websiteIndexDocument: indexFile,
       websiteErrorDocument: errorFile,
-      publicReadAccess: publicAccess,
+      publicReadAccess: false,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
-      accessControl: s3.BucketAccessControl.BUCKET_OWNER_FULL_CONTROL,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      accessControl: s3.BucketAccessControl.PRIVATE,
       encryption: s3.BucketEncryption.S3_MANAGED,
+      autoDeleteObjects: true,
     });
 
     return webBucket;
@@ -178,6 +179,9 @@ export class ViteInfraTemplate extends cdk.Stack {
             "base-directory": "dist",
             files: ["**/*"],
           },
+          caches: {
+            path: "./node_modules/**/*",
+          },
         }),
         environment: {
           buildImage: codebuild.LinuxBuildImage.AMAZON_LINUX_2_5,
@@ -255,6 +259,7 @@ export class ViteInfraTemplate extends cdk.Stack {
 
     const codePipeline = new codepipeline.Pipeline(this, "codepipeline", {
       pipelineName: pipelineName,
+      restartExecutionOnUpdate: true,
       stages,
     });
 
