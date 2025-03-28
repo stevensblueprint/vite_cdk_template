@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
-import { ViteInfraTemplate } from "../lib/react_cdk_template-stack";
+import { ViteInfraTemplate } from "../lib/vite_cdk_template-stack";
 import { devProps, prodProps } from "../config";
 
 const app = new cdk.App();
