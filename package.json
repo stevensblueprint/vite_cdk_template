@@ -1,8 +1,8 @@
 {
-  "name": "react_cdk_template",
+  "name": "vite_cdk_template",
   "version": "0.1.0",
   "bin": {
-    "react_cdk_template": "bin/react_cdk_template.js"
+    "vite_cdk_template": "bin/vite_cdk_template.js"
   },
   "scripts": {
     "build": "tsc",

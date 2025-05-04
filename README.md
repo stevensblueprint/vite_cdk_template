@@ -25,13 +25,13 @@ The CloudFront URL and the S3 bucket URL are outputted after running `cdk deploy
 
 ## Requirements
 - Have a repository with a React Vite app. If you want to use another web bundler (ex. webpack)
-you will need to update the `_createBuildProject` method in `lib/react_cdk_template`.
+you will need to update the `_createBuildProject` method in `lib/vite_cdk_template`.
 - AWS needs a Github Access token to fetch the latest pushes to the repository. You will need to add this secret to
 `Secrets Manager`. *Note:* Each secret is $0.40, please check if there is an existing secret containing a Github access key
 to the Stevens Blueprint GitHub organization before creating a new one.
 
 ## Deployment
-- Fill the `TODOS` in `react_cdk_template`. You won't need to change any of the code, but you will need to specify the name for some 
+- Fill the `TODOS` in `vite_cdk_template`. You won't need to change any of the code, but you will need to specify the name for some 
 of the services provided by AWS
 - Fill out the `config/config.yaml` file.
 - Make sure you have `AWS CLI` installed on your machine, and have the Stevens Blueprint credentials. See [AWS CLI Configuration](https://docs.aws.amazon.com/cli/latest/reference/configure/) for more information.
