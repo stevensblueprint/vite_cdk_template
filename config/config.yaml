@@ -6,6 +6,8 @@ githubRepoName: # GitHub repo name
 githubAccessTokenName: # GitHub access token name
 
 dev:
+  account: # AWS account ID
+  region: # AWS region
   deploy: false
   environmentType: dev
   branchName: dev
@@ -17,8 +19,14 @@ dev:
     publicAccess: false
     indexFile: index.html
     errorFile: index.html
+  domainName: # Domain name for the dev environment
+  subdomainName: # Subdomain name for the dev environment
+  certificateArn: # Certificate ARN for the dev environment
+  
 
 prod:
+  account: # AWS account ID
+  region: # AWS region
   deploy: true
   environmentType: prod
   branchName: main
@@ -30,3 +38,6 @@ prod:
     publicAccess: true
     indexFile: index.html
     errorFile: index.html
+  domainName: # Domain name for the prod environment
+  subdomainName: # Subdomain name for the prod environment
+  certificateArn: # Certificate ARN for the prod environment

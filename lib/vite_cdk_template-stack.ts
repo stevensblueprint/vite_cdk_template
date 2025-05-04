@@ -7,10 +7,15 @@ import * as cpa from "aws-cdk-lib/aws-codepipeline-actions";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as dotenv from "dotenv";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
 import { Construct } from "constructs";
 import path = require("path");
 
 interface ViteInfraTemplateProps extends cdk.StackProps {
+  account: string;
+  region: string;
   environmentType: string;
   branch: string;
   pipelineName: string;
@@ -22,6 +27,9 @@ interface ViteInfraTemplateProps extends cdk.StackProps {
   githubRepoOwner: string;
   githubRepoName: string;
   githubAccessToken: string;
+  domainName: string;
+  subdomain: string;
+  certificateArn: string;
 }
 
 export class ViteInfraTemplate extends cdk.Stack {
@@ -31,6 +39,7 @@ export class ViteInfraTemplate extends cdk.Stack {
     /*------------------------react deployment---------------------------*/
     const webBucket = this._createWebBucket(props);
     const distribution = this._createCloudFrontDistribution(webBucket, props);
+    const aRecord = this._createARecord(props, distribution);
 
     /*------------------------codepipeline/cicd--------------------------*/
     const { sourceOutput, sourceAction } = this._createSourceAction(props);
@@ -53,6 +62,7 @@ export class ViteInfraTemplate extends cdk.Stack {
       distribution
     );
     this._outCloudfrontURL(distribution);
+    this._outCustomDomainName(distribution);
     this._outS3BucketURL(webBucket);
   }
 
@@ -95,6 +105,12 @@ export class ViteInfraTemplate extends cdk.Stack {
       originAccessIdentity: oai,
     });
 
+    const certificate = acm.Certificate.fromCertificateArn(
+      this,
+      "DomainCertificate",
+      props.certificateArn
+    );
+
     const distribution = new cloudfront.Distribution(
       this,
       `${props.stackName}`,
@@ -120,10 +136,32 @@ export class ViteInfraTemplate extends cdk.Stack {
           },
         ],
         priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+        domainNames: [`${props.subdomain}.${props.domainName}`],
+        certificate: certificate,
       }
     );
 
     return distribution;
+  }
+
+  /*--------------------------ssl---------------------------*/
+  private _createARecord(
+    props: ViteInfraTemplateProps,
+    distribution: cloudfront.Distribution
+  ): route53.ARecord {
+    const hostedZone = route53.HostedZone.fromLookup(this, "HostedZone", {
+      domainName: props.domainName,
+    });
+    const domainARecord = new route53.ARecord(this, "AliasRecord", {
+      zone: hostedZone,
+      recordName: props.subdomain,
+      target: route53.RecordTarget.fromAlias(
+        new route53Targets.CloudFrontTarget(distribution)
+      ),
+    });
+
+    domainARecord.node.addDependency(distribution);
+    return domainARecord;
   }
 
   /*--------------------------codepipeline/cicd---------------------------*/
@@ -277,6 +315,13 @@ export class ViteInfraTemplate extends cdk.Stack {
     new cdk.CfnOutput(this, "s3-bucket-web-url", {
       value: bucket.bucketWebsiteUrl,
       description: "s3 bucket website url",
+    });
+  }
+
+  private _outCustomDomainName(distribution: cloudfront.Distribution) {
+    new cdk.CfnOutput(this, "custom-domain-name", {
+      value: distribution.domainName,
+      description: "custom domain name",
     });
   }
 }

@@ -11,6 +11,10 @@ envConfigs.forEach((envConfig) => {
     console.log(`Deploying stack: ${stackName}`);
     new ViteInfraTemplate(app, stackName, {
       ...envConfig,
+      env: {
+        account: envConfig.account,
+        region: envConfig.region,
+      },
       description: `CRM Admin Infra Stack for ${envConfig.environmentType}`,
     });
   }
