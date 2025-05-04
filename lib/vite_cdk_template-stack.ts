@@ -68,17 +68,16 @@ export class ViteInfraTemplate extends cdk.Stack {
 
   /*--------------------------react deployment---------------------------*/
   private _createWebBucket(props: ViteInfraTemplateProps) {
-    const { bucketName, indexFile, errorFile } = props;
+    const { bucketName, indexFile, errorFile, publicAccess } = props;
 
     const webBucket = new s3.Bucket(this, bucketName, {
       websiteIndexDocument: indexFile,
       websiteErrorDocument: errorFile,
-      publicReadAccess: false,
+      publicReadAccess: publicAccess,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      accessControl: s3.BucketAccessControl.PRIVATE,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+      accessControl: s3.BucketAccessControl.BUCKET_OWNER_FULL_CONTROL,
       encryption: s3.BucketEncryption.S3_MANAGED,
-      autoDeleteObjects: true,
     });
 
     return webBucket;
